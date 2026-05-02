@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskMaster Pro - Premium Todo List</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <!-- Background Elements -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-grid"></div>
+
+    <div class="app-container">
+        
+        <header class="app-header">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="flex: 1;"></div>
+                <div style="flex: 2; text-align: center;">
+                    <h1>TaskMaster <span class="highlight">Pro</span></h1>
+                    <p>Organize your work with elegance</p>
+                </div>
+                <div style="flex: 1; text-align: right;">
+                    <button id="logoutBtn" class="btn btn-outline" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                    <div id="welcomeUserText" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem;"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- The 3 Input Cards Section -->
+        <section class="input-section" id="todoForm">
+            
+            <div class="input-cards-container">
+                
+                <!-- Card 1: Task Details -->
+                <div class="input-card">
+                    <div class="card-icon"><i class="fas fa-tasks"></i></div>
+                    <h3>Core Task</h3>
+                    <div class="input-group">
+                        <label for="taskTitle">Task Title</label>
+                        <input type="text" id="taskTitle" placeholder="What needs to be done?" required>
+                    </div>
+                </div>
+
+                <!-- Card 2: Details & Context -->
+                <div class="input-card">
+                    <div class="card-icon"><i class="fas fa-align-left"></i></div>
+                    <h3>Context</h3>
+                    <div class="input-group">
+                        <label for="taskDesc">Description (Optional)</label>
+                        <textarea id="taskDesc" placeholder="Add some context..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Card 3: Priority & Submit -->
+                <div class="input-card">
+                    <div class="card-icon"><i class="fas fa-layer-group"></i></div>
+                    <h3>Organization</h3>
+                    <div class="input-group">
+                        <label for="taskCategory">Category / Priority</label>
+                        <select id="taskCategory">
+                            <option value="General">General</option>
+                            <option value="Work">💼 Work</option>
+                            <option value="Personal">🏡 Personal</option>
+                            <option value="Urgent">🔥 Urgent</option>
+                        </select>
+                    </div>
+                    <!-- Submit button spanning the bottom -->
+                    <button id="submitTaskBtn" class="btn btn-primary mt-auto">
+                        <i class="fas fa-plus-circle"></i> Add Task
+                    </button>
+                    <button id="saveEditBtn" class="btn btn-success mt-auto hidden">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                    <button id="cancelEditBtn" class="btn btn-outline mt-2 hidden">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Divider -->
+        <div class="divider">
+            <span>Your Tasks</span>
+        </div>
+
+        <!-- The To-Do List Display Section -->
+        <section class="list-section">
+            
+            <!-- Loading State -->
+            <div id="loadingIndicator" class="empty-state hidden">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading your tasks...</p>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="empty-state">
+                <div class="empty-icon">✨</div>
+                <h3>You're all caught up!</h3>
+                <p>Use the cards above to add a new task.</p>
+            </div>
+
+            <!-- Rendering Container -->
+            <div id="tasksContainer" class="tasks-grid">
+                <!-- Task items will be injected here via JS -->
+            </div>
+
+        </section>
+
+    </div>
+
+    <!-- Hidden field for edit mode -->
+    <input type="hidden" id="editTaskId" value="">
+
+    <script src="app.js"></script>
+</body>
+</html>

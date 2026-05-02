@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - TaskMaster Pro</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="login-body">
+
+    <!-- Ambient Backgrounds -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-grid"></div>
+
+    <div class="login-container">
+        
+        <!-- The requested "Task" animation container -->
+        <div class="animated-brand">
+            <span class="animate-task">TASK</span><span class="animate-master">MASTER</span>
+        </div>
+        
+        <div class="login-card">
+            <h2 id="formTitle">Welcome Back</h2>
+            <p id="formSubtitle">Enter your credentials to access your personal workspace.</p>
+            
+            <form id="authForm" class="login-form">
+                <div class="input-group">
+                    <label for="usernameInput">Username</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fas fa-user input-icon"></i>
+                        <input type="text" id="usernameInput" placeholder="e.g. johndoe" required autocomplete="username">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="passwordInput">Password</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" id="passwordInput" placeholder="••••••••" required autocomplete="current-password">
+                    </div>
+                </div>
+
+                <div class="input-group" id="registerRecoveryGroup" style="display: none;">
+                    <label for="registerRecoveryInput">Recovery Key</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fas fa-key input-icon"></i>
+                        <input type="text" id="registerRecoveryInput" placeholder="Save this to recover account!">
+                    </div>
+                </div>
+                
+                <button type="submit" id="submitBtn" class="btn btn-primary login-btn">
+                    Sign In <i class="fas fa-arrow-right"></i>
+                </button>
+            </form>
+
+            <form id="resetForm" class="login-form" style="display: none;">
+                <div class="input-group">
+                    <label for="resetUsernameInput">Username</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fas fa-user input-icon"></i>
+                        <input type="text" id="resetUsernameInput" placeholder="e.g. johndoe" required>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="resetRecoveryKeyInput">Recovery Key</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fas fa-key input-icon"></i>
+                        <input type="text" id="resetRecoveryKeyInput" placeholder="Enter your recovery key" required>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="resetPasswordInput">New Password</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" id="resetPasswordInput" placeholder="••••••••" required>
+                    </div>
+                </div>
+                
+                <button type="submit" id="resetSubmitBtn" class="btn btn-warning login-btn">
+                    Reset Password <i class="fas fa-redo"></i>
+                </button>
+                <div style="text-align: center; margin-top: 15px;">
+                    <a href="#" id="backToLoginLink" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">Back to Login</a>
+                </div>
+            </form>
+            
+            <div class="toggle-mode">
+                <span id="toggleText">Don't have an account?</span> 
+                <a href="#" id="toggleModeBtn">Create one</a>
+            </div>
+            <div class="toggle-mode" id="forgotPasswordContainer" style="margin-top: 10px;">
+                <a href="#" id="forgotPasswordLink" style="color: var(--accent-purple);">Forgot Password?</a>
+            </div>
+            
+            <div id="authError" class="login-error hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if already logged in
+            if (localStorage.getItem('taskmaster_user')) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Elements
+            const authForm = document.getElementById('authForm');
+            const usernameInput = document.getElementById('usernameInput');
+            const passwordInput = document.getElementById('passwordInput');
+            const submitBtn = document.getElementById('submitBtn');
+            const errorDiv = document.getElementById('authError');
+            
+            const formTitle = document.getElementById('formTitle');
+            const formSubtitle = document.getElementById('formSubtitle');
+            const toggleText = document.getElementById('toggleText');
+            const toggleModeBtn = document.getElementById('toggleModeBtn');
+            
+            let isLoginMode = true;
+
+            // Toggle logic
+            toggleModeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                isLoginMode = !isLoginMode;
+                
+                if (isLoginMode) {
+                    formTitle.textContent = "Welcome Back";
+                    formSubtitle.textContent = "Enter your credentials to access your personal workspace.";
+                    submitBtn.innerHTML = 'Sign In <i class="fas fa-arrow-right"></i>';
+                    toggleText.textContent = "Don't have an account?";
+                    toggleModeBtn.textContent = "Create one";
+                    document.getElementById('registerRecoveryGroup').style.display = 'none';
+                    document.getElementById('registerRecoveryInput').required = false;
+                } else {
+                    formTitle.textContent = "Create Account";
+                    formSubtitle.textContent = "Register a completely unique username to get started.";
+                    submitBtn.innerHTML = 'Register <i class="fas fa-user-plus"></i>';
+                    toggleText.textContent = "Already have an account?";
+                    toggleModeBtn.textContent = "Sign in";
+                    document.getElementById('registerRecoveryGroup').style.display = 'block';
+                    document.getElementById('registerRecoveryInput').required = true;
+                }
+                
+                errorDiv.classList.add('hidden');
+            });
+
+            // Form Submit Logic
+            authForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const username = usernameInput.value.trim();
+                const password = passwordInput.value;
+                const recoveryKey = document.getElementById('registerRecoveryInput').value.trim();
+                
+                if (!username || !password) return;
+                if (!isLoginMode && !recoveryKey) return;
+                
+                // Button loading state
+                const originalText = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                submitBtn.disabled = true;
+                errorDiv.classList.add('hidden');
+                
+                try {
+                    const endpoint = isLoginMode ? '/api/login' : '/api/register';
+                    
+                    const bodyData = { username, password };
+                    if (!isLoginMode) bodyData.recoveryKey = recoveryKey;
+                    
+                    const response = await fetch(`http://localhost:3000${endpoint}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(bodyData)
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Authentication failed');
+                    }
+                    
+                    // Save to localStorage
+                    localStorage.setItem('taskmaster_user', data.token);
+                    
+                    // Add success animation before redirect
+                    submitBtn.innerHTML = '<i class="fas fa-check"></i> Success!';
+                    submitBtn.classList.replace('btn-primary', 'btn-success');
+                    
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 500);
+                    
+                } catch (error) {
+                    console.error(error);
+                    errorDiv.textContent = error.message;
+                    errorDiv.classList.remove('hidden');
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            });
+        });
+    </script>
+    <script src="app.js"></script>
+</body>
+</html>
