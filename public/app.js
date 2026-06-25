@@ -1,6 +1,16 @@
 // app.js - TaskMaster Pro Logic
 
-const API_BASE_URL = 'http://localhost:3000/api/todos';
+// Initialize Supabase Client
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/**
+ * Generate a unique Task ID (e.g., TM-1A2B3C)
+ */
+function generateTaskId() {
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substr(2, 4).toUpperCase();
+    return `TM-${timestamp}-${random}`;
+}
 
 // DOM Elements
 const taskTitleInput = document.getElementById('taskTitle');
@@ -21,27 +31,42 @@ let allTasks = [];
 let currentUser = null;
 
 // Initialize App
-document.addEventListener('DOMContentLoaded', () => {
-    // ---- Password Reset Logic for Login Page ----
-    const resetForm = document.getElementById('resetForm');
-    if (resetForm) {
-        initPasswordResetLogic();
-        return; // Stop here if on login page
+document.addEventListener('DOMContentLoaded', async () => {
+    // If not on dashboard (index.html), stop here
+    if (!document.getElementById('tasksContainer')) {
+        return;
     }
 
-    // ---- Dashboard Logic ----
-    // Check Authentication
-    const savedUser = localStorage.getItem('taskmaster_user');
-    if (!savedUser) {
+    const authOverlay = document.getElementById('authOverlay');
+
+    // Check Authentication Session
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+        // Redirect immediately - don't show any content
+        localStorage.removeItem('taskmaster_user');
         window.location.href = 'login.html';
         return;
     }
     
-    currentUser = savedUser;
+    currentUser = session.user.email;
     
+    // Session confirmed - hide overlay and show content
+    if (authOverlay) {
+        authOverlay.style.opacity = '0';
+        setTimeout(() => {
+            authOverlay.remove();
+            document.body.style.overflow = '';
+        }, 300);
+    } else {
+        document.body.style.overflow = '';
+    }
+
     // Set UI 
     const welcomeText = document.getElementById('welcomeUserText');
-    if(welcomeText) welcomeText.textContent = `Logged in as: ${currentUser}`;
+    if(welcomeText) {
+        const displayUser = currentUser.split('@')[0];
+        welcomeText.textContent = `Logged in as: ${displayUser}`;
+    }
     
     fetchTasks();
 });
@@ -54,37 +79,42 @@ if (cancelEditBtn) cancelEditBtn.addEventListener('click', resetForm);
 // Logout handling
 const logoutBtn = document.getElementById('logoutBtn');
 if(logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
+    logoutBtn.addEventListener('click', async () => {
+        await supabaseClient.auth.signOut();
         localStorage.removeItem('taskmaster_user');
         window.location.href = 'login.html';
     });
 }
 
 /**
- * Fetch all tasks from the API
+ * Fetch all tasks from Supabase
  */
 async function fetchTasks() {
     showLoading(true);
     try {
-        const response = await fetch(API_BASE_URL, {
-            headers: {
-                'x-user-id': currentUser
-            }
-        });
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+
+        const { data: todos, error } = await supabaseClient
+            .from('todos')
+            .select('*')
+            .order('created_at', { ascending: false });
         
-        if (response.status === 401) {
-            localStorage.removeItem('taskmaster_user');
-            window.location.href = 'login.html';
-            return;
-        }
+        if (error) throw error;
         
-        if (!response.ok) throw new Error('Failed to fetch tasks');
+        allTasks = todos.map(t => ({
+            id: t.id,
+            owner: t.owner_id,
+            title: t.title,
+            description: t.description,
+            category: t.category,
+            createdAt: t.created_at
+        }));
         
-        allTasks = await response.json();
         renderTasks();
     } catch (error) {
         console.error('Error fetching tasks:', error);
-        alert('Could not load tasks. Make sure your local server is running.');
+        alert('Could not load tasks. Please ensure Supabase tables are created.');
     } finally {
         showLoading(false);
     }
@@ -144,7 +174,7 @@ function renderTasks() {
 }
 
 /**
- * Add a new task
+ * Add a new task to Supabase
  */
 async function handleAddTask() {
     const title = taskTitleInput.value.trim();
@@ -160,19 +190,34 @@ async function handleAddTask() {
     setButtonLoading(submitTaskBtn, true, 'Adding...');
     
     try {
-        const response = await fetch(API_BASE_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-user-id': currentUser
-            },
-            body: JSON.stringify({ title, description, category })
-        });
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+
+        const newTaskId = generateTaskId();
+        const newTodoData = {
+            id: newTaskId,
+            title,
+            description: description || '',
+            category: category || 'General',
+            owner_id: user.id
+        };
+
+        const { error } = await supabaseClient
+            .from('todos')
+            .insert([newTodoData]);
         
-        if (!response.ok) throw new Error('Failed to add task');
+        if (error) throw error;
         
-        const newTask = await response.json();
-        allTasks.push(newTask);
+        const newTodo = {
+            id: newTodoData.id,
+            owner: newTodoData.owner_id,
+            title: newTodoData.title,
+            description: newTodoData.description,
+            category: newTodoData.category,
+            createdAt: new Date().toISOString()
+        };
+
+        allTasks.push(newTodo);
         
         resetForm();
         renderTasks();
@@ -185,20 +230,18 @@ async function handleAddTask() {
 }
 
 /**
- * Delete a task
+ * Delete a task from Supabase
  */
 async function deleteTask(id) {
     if (!confirm('Are you sure you want to delete this task?')) return;
     
     try {
-        const response = await fetch(`${API_BASE_URL}/${id}`, {
-            method: 'DELETE',
-            headers: {
-                'x-user-id': currentUser
-            }
-        });
+        const { error } = await supabaseClient
+            .from('todos')
+            .delete()
+            .eq('id', id);
         
-        if (!response.ok) throw new Error('Failed to delete task');
+        if (error) throw error;
         
         // Remove from local state and re-render
         allTasks = allTasks.filter(t => t.id !== id);
@@ -241,7 +284,7 @@ function prepareEdit(id) {
 }
 
 /**
- * Save edited changes
+ * Save edited changes in Supabase
  */
 async function handleSaveEdit() {
     const id = editTaskIdInput.value;
@@ -254,23 +297,19 @@ async function handleSaveEdit() {
     setButtonLoading(saveEditBtn, true, 'Saving...');
     
     try {
-        const response = await fetch(`${API_BASE_URL}/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-user-id': currentUser
-            },
-            body: JSON.stringify({ title, description, category })
-        });
+        const { error } = await supabaseClient
+            .from('todos')
+            .update({ title, description, category })
+            .eq('id', id);
         
-        if (!response.ok) throw new Error('Failed to update task');
-        
-        const updatedTask = await response.json();
+        if (error) throw error;
         
         // Update local state and re-render
         const index = allTasks.findIndex(t => t.id === id);
         if (index !== -1) {
-            allTasks[index] = updatedTask;
+            allTasks[index].title = title;
+            allTasks[index].description = description;
+            allTasks[index].category = category;
         }
         
         resetForm();
@@ -335,91 +374,4 @@ function escapeHTML(str) {
     return div.innerHTML;
 }
 
-/**
- * Password Reset UI Logic for login.html
- */
-function initPasswordResetLogic() {
-    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
-    const backToLoginLink = document.getElementById('backToLoginLink');
-    const authForm = document.getElementById('authForm');
-    const resetForm = document.getElementById('resetForm');
-    const authError = document.getElementById('authError');
-    const formTitle = document.getElementById('formTitle');
-    const formSubtitle = document.getElementById('formSubtitle');
-    const toggleModeDiv = document.querySelector('.toggle-mode'); 
-    
-    if (forgotPasswordLink) {
-        forgotPasswordLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            authForm.style.display = 'none';
-            resetForm.style.display = 'block';
-            toggleModeDiv.style.display = 'none';
-            document.getElementById('forgotPasswordContainer').style.display = 'none';
-            formTitle.textContent = 'Reset Password';
-            formSubtitle.textContent = 'Enter your recovery key and a new password.';
-            authError.classList.add('hidden');
-        });
-    }
-
-    if (backToLoginLink) {
-        backToLoginLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            resetForm.style.display = 'none';
-            authForm.style.display = 'block';
-            toggleModeDiv.style.display = 'block';
-            document.getElementById('forgotPasswordContainer').style.display = 'block';
-            formTitle.textContent = 'Welcome Back';
-            formSubtitle.textContent = 'Enter your credentials to access your personal workspace.';
-            authError.classList.add('hidden');
-        });
-    }
-
-    if (resetForm) {
-        resetForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const username = document.getElementById('resetUsernameInput').value.trim();
-            const recoveryKey = document.getElementById('resetRecoveryKeyInput').value.trim();
-            const newPassword = document.getElementById('resetPasswordInput').value;
-            const submitBtn = document.getElementById('resetSubmitBtn');
-            const originalText = submitBtn.innerHTML;
-            
-            if (!username || !recoveryKey || !newPassword) return;
-            
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-            submitBtn.disabled = true;
-            authError.classList.add('hidden');
-            
-            try {
-                const response = await fetch('http://localhost:3000/api/reset-password', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, recoveryKey, newPassword })
-                });
-                
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(data.error || 'Password reset failed');
-                }
-                
-                submitBtn.innerHTML = '<i class="fas fa-check"></i> Success!';
-                submitBtn.classList.replace('btn-warning', 'btn-success');
-                
-                setTimeout(() => {
-                    backToLoginLink.click();
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.classList.replace('btn-success', 'btn-warning');
-                    submitBtn.disabled = false;
-                    resetForm.reset();
-                }, 1500);
-                
-            } catch (error) {
-                console.error(error);
-                authError.textContent = error.message;
-                authError.classList.remove('hidden');
-                submitBtn.innerHTML = originalText;
-                submitBtn.disabled = false;
-            }
-        });
-    }
-}
+// Password Reset Logic was moved directly to login.html to run serverless.

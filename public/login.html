@@ -28,10 +28,10 @@
             
             <form id="authForm" class="login-form">
                 <div class="input-group">
-                    <label for="usernameInput">Username</label>
+                    <label for="usernameInput">Email Address</label>
                     <div class="input-icon-wrapper">
-                        <i class="fas fa-user input-icon"></i>
-                        <input type="text" id="usernameInput" placeholder="e.g. johndoe" required autocomplete="username">
+                        <i class="fas fa-envelope input-icon"></i>
+                        <input type="email" id="usernameInput" placeholder="e.g. john@example.com" required autocomplete="email">
                     </div>
                 </div>
 
@@ -42,14 +42,6 @@
                         <input type="password" id="passwordInput" placeholder="••••••••" required autocomplete="current-password">
                     </div>
                 </div>
-
-                <div class="input-group" id="registerRecoveryGroup" style="display: none;">
-                    <label for="registerRecoveryInput">Recovery Key</label>
-                    <div class="input-icon-wrapper">
-                        <i class="fas fa-key input-icon"></i>
-                        <input type="text" id="registerRecoveryInput" placeholder="Save this to recover account!">
-                    </div>
-                </div>
                 
                 <button type="submit" id="submitBtn" class="btn btn-primary login-btn">
                     Sign In <i class="fas fa-arrow-right"></i>
@@ -58,34 +50,35 @@
 
             <form id="resetForm" class="login-form" style="display: none;">
                 <div class="input-group">
-                    <label for="resetUsernameInput">Username</label>
+                    <label for="resetEmailInput">Email Address</label>
                     <div class="input-icon-wrapper">
-                        <i class="fas fa-user input-icon"></i>
-                        <input type="text" id="resetUsernameInput" placeholder="e.g. johndoe" required>
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label for="resetRecoveryKeyInput">Recovery Key</label>
-                    <div class="input-icon-wrapper">
-                        <i class="fas fa-key input-icon"></i>
-                        <input type="text" id="resetRecoveryKeyInput" placeholder="Enter your recovery key" required>
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label for="resetPasswordInput">New Password</label>
-                    <div class="input-icon-wrapper">
-                        <i class="fas fa-lock input-icon"></i>
-                        <input type="password" id="resetPasswordInput" placeholder="••••••••" required>
+                        <i class="fas fa-envelope input-icon"></i>
+                        <input type="email" id="resetEmailInput" placeholder="e.g. john@example.com" required>
                     </div>
                 </div>
                 
                 <button type="submit" id="resetSubmitBtn" class="btn btn-warning login-btn">
-                    Reset Password <i class="fas fa-redo"></i>
+                    Send Reset Link <i class="fas fa-paper-plane"></i>
                 </button>
                 <div style="text-align: center; margin-top: 15px;">
                     <a href="#" id="backToLoginLink" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">Back to Login</a>
+                </div>
+            </form>
+
+            <form id="updatePasswordForm" class="login-form" style="display: none;">
+                <div class="input-group">
+                    <label for="newPasswordInput">New Password</label>
+                    <div class="input-icon-wrapper">
+                        <i class="fas fa-lock input-icon"></i>
+                        <input type="password" id="newPasswordInput" placeholder="Enter new password (min. 6 chars)" required>
+                    </div>
+                </div>
+                
+                <button type="submit" id="updatePasswordSubmitBtn" class="btn btn-success login-btn">
+                    Update Password <i class="fas fa-check-circle"></i>
+                </button>
+                <div style="text-align: center; margin-top: 15px;">
+                    <a href="#" id="backToLoginFromResetLink" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">Back to Login</a>
                 </div>
             </form>
             
@@ -101,13 +94,13 @@
         </div>
     </div>
 
+    <!-- Supabase Client CDN & Config -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Check if already logged in
-            if (localStorage.getItem('taskmaster_user')) {
-                window.location.href = 'index.html';
-                return;
-            }
+            // Initialize Supabase client
+            const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
             // Elements
             const authForm = document.getElementById('authForm');
@@ -120,13 +113,35 @@
             const formSubtitle = document.getElementById('formSubtitle');
             const toggleText = document.getElementById('toggleText');
             const toggleModeBtn = document.getElementById('toggleModeBtn');
+            const forgotPasswordContainer = document.getElementById('forgotPasswordContainer');
+            const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+            const toggleModeDiv = document.querySelector('.toggle-mode');
+
+            const resetForm = document.getElementById('resetForm');
+            const resetEmailInput = document.getElementById('resetEmailInput');
+            const resetSubmitBtn = document.getElementById('resetSubmitBtn');
+            const backToLoginLink = document.getElementById('backToLoginLink');
+
+            const updatePasswordForm = document.getElementById('updatePasswordForm');
+            const newPasswordInput = document.getElementById('newPasswordInput');
+            const updatePasswordSubmitBtn = document.getElementById('updatePasswordSubmitBtn');
+            const backToLoginFromResetLink = document.getElementById('backToLoginFromResetLink');
             
             let isLoginMode = true;
 
-            // Toggle logic
+            // Check if already logged in
+            supabaseClient.auth.getSession().then(({ data: { session } }) => {
+                if (session) {
+                    localStorage.setItem('taskmaster_user', session.user.email);
+                    window.location.href = 'index.html';
+                }
+            });
+
+            // Toggle login/register mode
             toggleModeBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 isLoginMode = !isLoginMode;
+                errorDiv.classList.add('hidden');
                 
                 if (isLoginMode) {
                     formTitle.textContent = "Welcome Back";
@@ -134,59 +149,66 @@
                     submitBtn.innerHTML = 'Sign In <i class="fas fa-arrow-right"></i>';
                     toggleText.textContent = "Don't have an account?";
                     toggleModeBtn.textContent = "Create one";
-                    document.getElementById('registerRecoveryGroup').style.display = 'none';
-                    document.getElementById('registerRecoveryInput').required = false;
+                    forgotPasswordContainer.style.display = 'block';
                 } else {
                     formTitle.textContent = "Create Account";
-                    formSubtitle.textContent = "Register a completely unique username to get started.";
+                    formSubtitle.textContent = "Register your email address to get started.";
                     submitBtn.innerHTML = 'Register <i class="fas fa-user-plus"></i>';
                     toggleText.textContent = "Already have an account?";
                     toggleModeBtn.textContent = "Sign in";
-                    document.getElementById('registerRecoveryGroup').style.display = 'block';
-                    document.getElementById('registerRecoveryInput').required = true;
+                    forgotPasswordContainer.style.display = 'none';
                 }
-                
-                errorDiv.classList.add('hidden');
             });
 
-            // Form Submit Logic
+            // Form Submit Logic (Login/Signup)
             authForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const username = usernameInput.value.trim();
+                const email = usernameInput.value.trim();
                 const password = passwordInput.value;
-                const recoveryKey = document.getElementById('registerRecoveryInput').value.trim();
                 
-                if (!username || !password) return;
-                if (!isLoginMode && !recoveryKey) return;
+                if (!email || !password) return;
                 
-                // Button loading state
                 const originalText = submitBtn.innerHTML;
                 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
                 submitBtn.disabled = true;
                 errorDiv.classList.add('hidden');
                 
                 try {
-                    const endpoint = isLoginMode ? '/api/login' : '/api/register';
-                    
-                    const bodyData = { username, password };
-                    if (!isLoginMode) bodyData.recoveryKey = recoveryKey;
-                    
-                    const response = await fetch(`http://localhost:3000${endpoint}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(bodyData)
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (!response.ok) {
-                        throw new Error(data.error || 'Authentication failed');
+                    let result;
+                    if (isLoginMode) {
+                        result = await supabaseClient.auth.signInWithPassword({ email, password });
+                    } else {
+                        result = await supabaseClient.auth.signUp({ email, password });
                     }
                     
-                    // Save to localStorage
-                    localStorage.setItem('taskmaster_user', data.token);
+                    if (result.error) throw result.error;
                     
-                    // Add success animation before redirect
+                    // Handle signup case where email confirmation is required
+                    if (!isLoginMode && result.data.user && !result.data.session) {
+                        submitBtn.innerHTML = '<i class="fas fa-envelope"></i> Check Your Email';
+                        submitBtn.classList.replace('btn-primary', 'btn-success');
+                        errorDiv.style.color = '#4ade80';
+                        errorDiv.classList.remove('hidden');
+                        errorDiv.textContent = '✅ Account created! Please check your email to confirm your account, then sign in.';
+                        setTimeout(() => {
+                            // Switch back to login mode
+                            isLoginMode = true;
+                            formTitle.textContent = "Welcome Back";
+                            formSubtitle.textContent = "Enter your credentials to access your personal workspace.";
+                            submitBtn.innerHTML = 'Sign In <i class="fas fa-arrow-right"></i>';
+                            submitBtn.classList.replace('btn-success', 'btn-primary');
+                            submitBtn.disabled = false;
+                            toggleText.textContent = "Don't have an account?";
+                            toggleModeBtn.textContent = "Create one";
+                            forgotPasswordContainer.style.display = 'block';
+                            passwordInput.value = '';
+                        }, 4000);
+                        return;
+                    }
+                    
+                    // Save email as current user
+                    localStorage.setItem('taskmaster_user', result.data.user.email);
+                    
                     submitBtn.innerHTML = '<i class="fas fa-check"></i> Success!';
                     submitBtn.classList.replace('btn-primary', 'btn-success');
                     
@@ -196,14 +218,157 @@
                     
                 } catch (error) {
                     console.error(error);
-                    errorDiv.textContent = error.message;
+                    // Map Supabase error messages to user-friendly ones
+                    let friendlyMessage = error.message;
+                    if (error.message.includes('Invalid login credentials')) {
+                        friendlyMessage = 'Incorrect email or password. Please try again.';
+                    } else if (error.message.includes('Email not confirmed')) {
+                        friendlyMessage = 'Please confirm your email address before signing in. Check your inbox.';
+                    } else if (error.message.includes('User already registered')) {
+                        friendlyMessage = 'An account with this email already exists. Please sign in instead.';
+                    } else if (error.message.includes('Password should be at least')) {
+                        friendlyMessage = 'Password must be at least 6 characters long.';
+                    } else if (error.message.includes('Unable to validate email address')) {
+                        friendlyMessage = 'Please enter a valid email address.';
+                    }
+                    errorDiv.style.color = '';
+                    errorDiv.textContent = friendlyMessage;
                     errorDiv.classList.remove('hidden');
                     submitBtn.innerHTML = originalText;
                     submitBtn.disabled = false;
                 }
             });
+
+            // Show Forgot Password Form
+            if (forgotPasswordLink) {
+                forgotPasswordLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    authForm.style.display = 'none';
+                    resetForm.style.display = 'block';
+                    toggleModeDiv.style.display = 'none';
+                    forgotPasswordContainer.style.display = 'none';
+                    formTitle.textContent = 'Reset Password';
+                    formSubtitle.textContent = 'Enter your email address to receive a recovery link.';
+                    errorDiv.classList.add('hidden');
+                });
+            }
+
+            // Back to Login Link
+            if (backToLoginLink) {
+                backToLoginLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    resetForm.style.display = 'none';
+                    updatePasswordForm.style.display = 'none';
+                    authForm.style.display = 'block';
+                    toggleModeDiv.style.display = 'block';
+                    forgotPasswordContainer.style.display = 'block';
+                    formTitle.textContent = 'Welcome Back';
+                    formSubtitle.textContent = 'Enter your credentials to access your personal workspace.';
+                    errorDiv.classList.add('hidden');
+                });
+            }
+            if (backToLoginFromResetLink) {
+                backToLoginFromResetLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    resetForm.style.display = 'none';
+                    updatePasswordForm.style.display = 'none';
+                    authForm.style.display = 'block';
+                    toggleModeDiv.style.display = 'block';
+                    forgotPasswordContainer.style.display = 'block';
+                    formTitle.textContent = 'Welcome Back';
+                    formSubtitle.textContent = 'Enter your credentials to access your personal workspace.';
+                    errorDiv.classList.add('hidden');
+                });
+            }
+
+            // Reset Password Link Submission
+            resetForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = resetEmailInput.value.trim();
+                if (!email) return;
+
+                const originalText = resetSubmitBtn.innerHTML;
+                resetSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+                resetSubmitBtn.disabled = true;
+                errorDiv.classList.add('hidden');
+
+                try {
+                    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+                        redirectTo: window.location.origin + window.location.pathname,
+                    });
+
+                    if (error) throw error;
+
+                    resetSubmitBtn.innerHTML = '<i class="fas fa-check"></i> Sent!';
+                    resetSubmitBtn.classList.replace('btn-warning', 'btn-success');
+                    alert('Password reset email sent! Please check your inbox.');
+                    
+                    setTimeout(() => {
+                        backToLoginLink.click();
+                        resetSubmitBtn.innerHTML = originalText;
+                        resetSubmitBtn.classList.replace('btn-success', 'btn-warning');
+                        resetSubmitBtn.disabled = false;
+                        resetForm.reset();
+                    }, 1500);
+
+                } catch (error) {
+                    console.error(error);
+                    errorDiv.textContent = error.message;
+                    errorDiv.classList.remove('hidden');
+                    resetSubmitBtn.innerHTML = originalText;
+                    resetSubmitBtn.disabled = false;
+                }
+            });
+
+            // Update Password Submission
+            updatePasswordForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const newPassword = newPasswordInput.value;
+                if (!newPassword || newPassword.length < 6) {
+                    alert('Password must be at least 6 characters.');
+                    return;
+                }
+
+                const originalText = updatePasswordSubmitBtn.innerHTML;
+                updatePasswordSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+                updatePasswordSubmitBtn.disabled = true;
+                errorDiv.classList.add('hidden');
+
+                try {
+                    const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+
+                    if (error) throw error;
+
+                    updatePasswordSubmitBtn.innerHTML = '<i class="fas fa-check"></i> Success!';
+                    updatePasswordSubmitBtn.classList.replace('btn-success', 'btn-primary');
+                    alert('Password updated successfully! Logging you in...');
+                    
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1500);
+
+                } catch (error) {
+                    console.error(error);
+                    errorDiv.textContent = error.message;
+                    errorDiv.classList.remove('hidden');
+                    updatePasswordSubmitBtn.innerHTML = originalText;
+                    updatePasswordSubmitBtn.disabled = false;
+                }
+            });
+
+            // Listen for Password Recovery auth state change
+            supabaseClient.auth.onAuthStateChange(async (event, session) => {
+                if (event === 'PASSWORD_RECOVERY') {
+                    authForm.style.display = 'none';
+                    resetForm.style.display = 'none';
+                    updatePasswordForm.style.display = 'block';
+                    toggleModeDiv.style.display = 'none';
+                    forgotPasswordContainer.style.display = 'none';
+                    formTitle.textContent = 'Create New Password';
+                    formSubtitle.textContent = 'Enter your new secure password below.';
+                }
+            });
         });
     </script>
-    <script src="app.js"></script>
 </body>
 </html>
